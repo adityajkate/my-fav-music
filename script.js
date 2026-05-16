@@ -5,7 +5,7 @@ const easeOutExpo = "expo.out";
 // Track Data Database
 // ==========================================
 const trackDB = [
-    { id: 0, title: "Sun Saawariya", artist: "Unknown", genre: "bollywood", cover: "images/sun_saawariya_1778954616851.png", file: "songs/Sun Saawariya.mp3" },
+    { id: 0, title: "Sun Saawariya", artist: "Authored by Accha Insaann, Yaani Karnawat, Atharva Music", genre: "bollywood", cover: "images/sun_saawariya_1778954616851.png", file: "songs/Sun Saawariya.mp3" },
     { id: 1, title: "Beautiful Things", artist: "Benson Boone", genre: "pop", cover: "images/beautiful_things_1778954631791.png", file: "songs/Beautiful Things.mp3" },
     { id: 2, title: "Perfect", artist: "Ed Sheeran", genre: "pop", cover: "images/perfect_1778954647114.png", file: "songs/Perfect.mp3" },
     { id: 3, title: "Tum Hi Ho", artist: "Arijit Singh", genre: "bollywood", cover: "images/tum_hi_ho_1778954680336.png", file: "songs/Tum Hi Ho.mp3" },
