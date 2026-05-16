@@ -107,9 +107,12 @@ function renderProceduralVisualizer() {
     const w = canvas.width;
     const h = canvas.height;
     
-    // Calculate precise drawing coordinates
-    // Start drawing from the absolute bottom of the canvas so it sits beautifully behind the playback controls and below the progress bar
-    const visBaseY = h; 
+    // Find where the progress bar is to position the visualizer perfectly below it
+    const progressRect = expProgressBar.getBoundingClientRect();
+    const overlayRect = expandedOverlay.getBoundingClientRect();
+    
+    // Start drawing exactly 20px below the progress bar
+    const visBaseY = progressRect.bottom - overlayRect.top + 20; 
     const centerY = h / 2;
     
     if (currentVisMode === 'bars') {
@@ -123,7 +126,9 @@ function renderProceduralVisualizer() {
         for(let i=0; i<numBars; i++) {
             const bh = barHeights[i] * maxH;
             const x = startX + i * (barWidth + padding);
-            const y = visBaseY - bh; 
+            
+            // Draw downwards from visBaseY
+            const y = visBaseY; 
             
             const gradient = ctx.createLinearGradient(0, y, 0, y+bh);
             gradient.addColorStop(0, `hsl(${i * (300/numBars)}, 100%, 60%)`);
@@ -135,29 +140,29 @@ function renderProceduralVisualizer() {
             ctx.fill();
         }
     } else if (currentVisMode === 'wave') {
-        // Draw double overlapping solid waves at the bottom of the screen
-        const maxH = 120;
+        // Draw double overlapping solid waves downwards from below the progress bar
+        const maxH = 100;
         const drawW = w * 0.9;
         const startX = (w - drawW) / 2;
         
-        ctx.fillStyle = 'rgba(255, 77, 0, 0.6)'; // Accent Orange
+        ctx.fillStyle = 'rgba(255, 77, 0, 0.4)'; // Accent Orange
         ctx.beginPath();
         ctx.moveTo(startX, visBaseY);
         for(let i=0; i<=numBars; i++) {
             const x = startX + (i/numBars) * drawW;
             const bh = (barHeights[i] || 0) * maxH;
-            ctx.lineTo(x, visBaseY - bh);
+            ctx.lineTo(x, visBaseY + bh); // Draw downwards
         }
         ctx.lineTo(startX + drawW, visBaseY);
         ctx.fill();
         
-        ctx.fillStyle = 'rgba(147, 51, 234, 0.5)'; // Purple
+        ctx.fillStyle = 'rgba(147, 51, 234, 0.3)'; // Purple
         ctx.beginPath();
         ctx.moveTo(startX, visBaseY);
         for(let i=0; i<=numBars; i++) {
             const x = startX + (i/numBars) * drawW;
             const bh = (barHeights[numBars - i] || 0) * (maxH * 0.7); 
-            ctx.lineTo(x, visBaseY - bh + 10);
+            ctx.lineTo(x, visBaseY + bh + 10); // Draw downwards
         }
         ctx.lineTo(startX + drawW, visBaseY);
         ctx.fill();
