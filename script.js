@@ -46,53 +46,140 @@ const expTotalTimeEl = document.getElementById('exp-total-time');
 const expProgressFill = document.getElementById('exp-progress-fill');
 const expProgressBar = document.getElementById('exp-progress-bar');
 const expPlayBtn = document.getElementById('exp-play-btn');
-const visualizerGlow = document.getElementById('visualizer-glow');
+
 
 // ==========================================
-// Organic GSAP Visualizer (100% Reliable locally)
+// Canvas Procedural Visualizer (Zero CORS Issues)
 // ==========================================
-let visualizerAnim;
+const canvas = document.getElementById('vis-canvas');
+const ctx = canvas.getContext('2d');
+const visModeBtns = document.querySelectorAll('.vis-mode-btn');
 
-function startVisualizer() {
-    if (!expandedOverlay.classList.contains('active') || !isPlaying) {
-        stopVisualizer();
-        return;
-    }
-    if (visualizerAnim && visualizerAnim.isActive()) return;
+let currentVisMode = 'bars';
+let visRAF;
+let time = 0;
+const numBars = 64;
+let barHeights = new Array(numBars).fill(0);
+let targetHeights = new Array(numBars).fill(0);
+
+visModeBtns.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+        // Stop click from expanding/collapsing overlay
+        e.stopPropagation();
+        visModeBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentVisMode = btn.getAttribute('data-mode');
+    });
+});
+
+function renderProceduralVisualizer() {
+    visRAF = requestAnimationFrame(renderProceduralVisualizer);
     
-    // Create an organic, breathing aura
-    visualizerAnim = gsap.to(visualizerGlow, {
-        scale: "random(1.0, 1.4)",
-        opacity: "random(0.15, 0.4)",
-        duration: "random(1.5, 3)",
-        ease: "sine.inOut",
-        onComplete: () => {
-            if (isPlaying && expandedOverlay.classList.contains('active')) {
-                startVisualizer();
+    // Auto-resize canvas to match container
+    canvas.width = canvas.offsetWidth;
+    canvas.height = canvas.offsetHeight;
+    
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Only animate if playing and visible
+    if (!isPlaying || !expandedOverlay.classList.contains('active')) {
+        // dampen to zero smoothly
+        for(let i=0; i<numBars; i++) targetHeights[i] = 0;
+    } else {
+        time += 0.05;
+        // Generate new random targets every few frames
+        if (Math.random() < 0.25) {
+            for(let i=0; i<numBars; i++) {
+                // Procedurally simulate a frequency spectrum
+                const base = Math.sin(time + i * 0.1) * 0.5 + 0.5;
+                const noise = Math.random();
+                const energy = (1 - (i/numBars)*0.4); // slightly taper off towards the right
+                targetHeights[i] = (base * 0.6 + noise * 0.4) * energy;
             }
         }
-    });
-}
-
-function stopVisualizer() {
-    if (visualizerAnim) {
-        visualizerAnim.kill();
-        visualizerAnim = null;
     }
-    gsap.to(visualizerGlow, {
-        scale: 0.8,
-        opacity: 0,
-        duration: 1,
-        ease: "power2.out"
-    });
+    
+    // Ease current height to target height (smooths out the visualizer)
+    for(let i=0; i<numBars; i++) {
+        barHeights[i] += (targetHeights[i] - barHeights[i]) * 0.15;
+    }
+    
+    const w = canvas.width;
+    const h = canvas.height;
+    const centerY = h / 2;
+    
+    if (currentVisMode === 'bars') {
+        // Draw colorful vertical bars
+        const barWidth = w / numBars;
+        const padding = barWidth * 0.25;
+        const maxH = h * 0.6; // Take up 60% of screen height
+        
+        for(let i=0; i<numBars; i++) {
+            const bh = barHeights[i] * maxH;
+            const x = i * barWidth + padding/2;
+            const y = centerY - bh/2;
+            
+            // Gradient based on index
+            const gradient = ctx.createLinearGradient(0, y, 0, y+bh);
+            gradient.addColorStop(0, `hsl(${i * (300/numBars)}, 100%, 50%)`);
+            gradient.addColorStop(1, `hsl(${i * (300/numBars) + 40}, 100%, 30%)`);
+            
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.roundRect(x, y, barWidth - padding, Math.max(2, bh), (barWidth-padding)/2);
+            ctx.fill();
+        }
+    } else if (currentVisMode === 'wave') {
+        // Draw double overlapping solid waves
+        const maxH = h * 0.4;
+        
+        ctx.fillStyle = 'rgba(255, 77, 0, 0.4)'; // Primary Accent Orange
+        ctx.beginPath();
+        ctx.moveTo(0, centerY);
+        for(let i=0; i<=numBars; i++) {
+            const x = (i/numBars) * w;
+            const bh = (barHeights[i] || 0) * maxH;
+            ctx.lineTo(x, centerY - bh);
+        }
+        ctx.lineTo(w, h);
+        ctx.lineTo(0, h);
+        ctx.fill();
+        
+        ctx.fillStyle = 'rgba(147, 51, 234, 0.4)'; // Purple
+        ctx.beginPath();
+        ctx.moveTo(0, centerY);
+        for(let i=0; i<=numBars; i++) {
+            const x = (i/numBars) * w;
+            const bh = (barHeights[numBars - i] || 0) * (maxH * 0.7); // reversed and smaller
+            ctx.lineTo(x, centerY + bh - 20);
+        }
+        ctx.lineTo(w, h);
+        ctx.lineTo(0, h);
+        ctx.fill();
+    } else if (currentVisMode === 'aura') {
+        // Circular relaxing aura/ripple
+        const avg = barHeights.reduce((a,b)=>a+b, 0) / numBars;
+        const minRadius = Math.min(w, h) * 0.2;
+        const radius = minRadius + avg * (minRadius * 1.5);
+        
+        // Match the center of the expanded cover art (which is slightly offset upwards)
+        const auraY = centerY - 60; 
+        
+        const grad = ctx.createRadialGradient(w/2, auraY, minRadius*0.5, w/2, auraY, radius);
+        grad.addColorStop(0, 'rgba(255, 77, 0, 0.6)');
+        grad.addColorStop(1, 'rgba(255, 77, 0, 0)');
+        
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(w/2, auraY, radius, 0, Math.PI*2);
+        ctx.fill();
+    }
 }
+renderProceduralVisualizer();
 
 function updateVisualizer() {
-    if (isPlaying) {
-        startVisualizer();
-    } else {
-        stopVisualizer();
-    }
+    // Kept for backward compatibility when switching play/pause,
+    // though the requestAnimationFrame loop handles everything naturally now.
 }
 
 
@@ -158,7 +245,7 @@ function filterByGenre(genre) {
 }
 
 // ==========================================
-// 1. App Load Choreography
+// App Load Choreography
 // ==========================================
 function initEntryAnimation() {
     gsap.fromTo('.reveal-anim', 
@@ -175,7 +262,7 @@ function initEntryAnimation() {
 }
 
 // ==========================================
-// 2. Magnetic Buttons
+// Magnetic Buttons
 // ==========================================
 function initMagneticButtons() {
     const magneticBtns = document.querySelectorAll('.magnetic-btn');
@@ -206,7 +293,7 @@ function initMagneticButtons() {
 }
 
 // ==========================================
-// 3. Real Music Player Logic
+// Real Music Player Logic
 // ==========================================
 function formatTime(secs) {
     if (isNaN(secs)) return "0:00";
@@ -272,8 +359,6 @@ function updatePlayPauseIcons() {
 }
 
 function playTrack() {
-    updateVisualizer();
-    
     audio.play().then(() => {
         isPlaying = true;
         updatePlayPauseIcons();
@@ -289,7 +374,6 @@ function pauseTrack() {
     audio.pause();
     isPlaying = false;
     updatePlayPauseIcons();
-    updateVisualizer();
     
     const activeItem = document.querySelector(`.track-item[data-index="${currentTrackIndex}"]`);
     if(activeItem) activeItem.classList.remove('playing');
@@ -362,14 +446,11 @@ genreBtns.forEach(btn => {
 document.querySelector('.now-playing-mini').addEventListener('click', (e) => {
     // Don't expand if clicking on the control buttons directly
     if(e.target.closest('.control-btn') || e.target.closest('.progress-wrapper')) return;
-    
     expandedOverlay.classList.add('active');
-    updateVisualizer();
 });
 
 closeExpandedBtn.addEventListener('click', () => {
     expandedOverlay.classList.remove('active');
-    updateVisualizer();
 });
 
 // ==========================================
