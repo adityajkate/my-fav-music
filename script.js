@@ -5,10 +5,10 @@ const easeOutExpo = "expo.out";
 // Track Data Database
 // ==========================================
 const trackDB = [
-    { id: 0, title: "Sun Saawariya", artist: "Authored by Accha Insaann, Yaani Karnawat, Atharva Music", genre: "bollywood", cover: "images/sun_saawariya_1778954616851.png", file: "songs/Sun%20Saawariya.mp3" },
-    { id: 1, title: "Beautiful Things", artist: "Benson Boone", genre: "pop", cover: "images/beautiful_things_1778954631791.png", file: "songs/Beautiful%20Things.mp3" },
+    { id: 0, title: "Sun Saawariya", artist: "Authored by Accha Insaann, Yaani Karnawat, Atharva Music", genre: "bollywood", cover: "images/sun_saawariya_1778954616851.png", file: "songs/Sun Saawariya.mp3" },
+    { id: 1, title: "Beautiful Things", artist: "Benson Boone", genre: "pop", cover: "images/beautiful_things_1778954631791.png", file: "songs/Beautiful Things.mp3" },
     { id: 2, title: "Perfect", artist: "Ed Sheeran", genre: "pop", cover: "images/perfect_1778954647114.png", file: "songs/Perfect.mp3" },
-    { id: 3, title: "Tum Hi Ho", artist: "Arijit Singh", genre: "bollywood", cover: "images/tum_hi_ho_1778954680336.png", file: "songs/Tum%20Hi%20Ho.mp3" },
+    { id: 3, title: "Tum Hi Ho", artist: "Arijit Singh", genre: "bollywood", cover: "images/tum_hi_ho_1778954680336.png", file: "songs/Tum Hi Ho.mp3" },
     { id: 4, title: "Photograph", artist: "Ed Sheeran", genre: "acoustic", cover: "images/photograph_1778954662822.png", file: "songs/Photograph.mp3" }
 ];
 
@@ -49,79 +49,49 @@ const expPlayBtn = document.getElementById('exp-play-btn');
 const visualizerGlow = document.getElementById('visualizer-glow');
 
 // ==========================================
-// Smooth Frequency Visualizer
+// Organic GSAP Visualizer (100% Reliable locally)
 // ==========================================
-let audioCtx;
-let analyser;
-let source;
-let dataArray;
-let isVisualizerInit = false;
+let visualizerAnim;
 
-function initAudioVisualizer() {
-    if (isVisualizerInit) return;
-    
-    try {
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        if (!AudioContext) return;
-        
-        audioCtx = new AudioContext();
-        analyser = audioCtx.createAnalyser();
-        
-        source = audioCtx.createMediaElementSource(audio);
-        source.connect(analyser);
-        analyser.connect(audioCtx.destination);
-        
-        analyser.fftSize = 64; 
-        analyser.smoothingTimeConstant = 0.9; // High smoothing for relaxing feel
-        const bufferLength = analyser.frequencyBinCount;
-        dataArray = new Uint8Array(bufferLength);
-        
-        isVisualizerInit = true;
-        updateVisualizerFrame();
-    } catch (e) {
-        console.warn("Visualizer init failed, audio will still play.", e);
-    }
-}
-
-function updateVisualizerFrame() {
-    if (!isVisualizerInit) return;
-    requestAnimationFrame(updateVisualizerFrame);
-    
-    if (!isPlaying || !expandedOverlay.classList.contains('active')) {
-        if(visualizerGlow) visualizerGlow.style.opacity = '0';
+function startVisualizer() {
+    if (!expandedOverlay.classList.contains('active') || !isPlaying) {
+        stopVisualizer();
         return;
     }
+    if (visualizerAnim && visualizerAnim.isActive()) return;
     
-    analyser.getByteFrequencyData(dataArray);
-    
-    let bass = 0;
-    for(let i = 0; i < 4; i++) bass += dataArray[i];
-    bass = bass / 4;
-    
-    let mids = 0;
-    for(let i = 4; i < 12; i++) mids += dataArray[i];
-    mids = mids / 8;
-    
-    const scale = 1 + (bass / 255) * 0.7; 
-    const opacity = 0.15 + (mids / 255) * 0.6;
-    
-    if (visualizerGlow) {
-        visualizerGlow.style.transform = `translate(-50%, -50%) scale(${scale})`;
-        visualizerGlow.style.opacity = opacity;
-    }
+    // Create an organic, breathing aura
+    visualizerAnim = gsap.to(visualizerGlow, {
+        scale: "random(1.0, 1.4)",
+        opacity: "random(0.15, 0.4)",
+        duration: "random(1.5, 3)",
+        ease: "sine.inOut",
+        onComplete: () => {
+            if (isPlaying && expandedOverlay.classList.contains('active')) {
+                startVisualizer();
+            }
+        }
+    });
 }
 
-// Ensure AudioContext starts on interaction
-document.body.addEventListener('click', () => {
-    if (!isVisualizerInit && isPlaying) {
-        initAudioVisualizer();
+function stopVisualizer() {
+    if (visualizerAnim) {
+        visualizerAnim.kill();
+        visualizerAnim = null;
     }
-}, { once: true });
+    gsap.to(visualizerGlow, {
+        scale: 0.8,
+        opacity: 0,
+        duration: 1,
+        ease: "power2.out"
+    });
+}
 
 function updateVisualizer() {
-    // Keep this wrapper for the UI toggles to not break
-    if (!isVisualizerInit && isPlaying) {
-        initAudioVisualizer();
+    if (isPlaying) {
+        startVisualizer();
+    } else {
+        stopVisualizer();
     }
 }
 
