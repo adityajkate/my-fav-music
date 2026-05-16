@@ -20,7 +20,6 @@ let globalActiveTrackId = trackDB[0].id; // Keep track of the actual playing son
 // Audio Engine
 const audio = new Audio();
 audio.src = trackDB[0].file;
-audio.crossOrigin = "anonymous"; // Important for Web Audio API if hosted elsewhere, fine locally
 
 // Mini Player Elements
 const trackListEl = document.getElementById('track-list');
