@@ -430,34 +430,41 @@ body {
     height: 100%;
     z-index: 0;
     pointer-events: none;
-    opacity: 0.8;
+    opacity: 0.9;
 }
 
 .vis-selector {
     position: absolute;
     top: 2rem;
-    left: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
     display: flex;
-    gap: 0.5rem;
+    background: rgba(255,255,255,0.03);
+    padding: 4px;
+    border-radius: 30px;
+    backdrop-filter: blur(10px);
     z-index: 51;
+    border: 1px solid rgba(255,255,255,0.05);
 }
 
 .vis-mode-btn {
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.1);
-    color: var(--color-text-secondary);
-    padding: 0.4rem 0.8rem;
+    background: transparent;
+    border: none;
+    color: var(--color-text-tertiary);
+    padding: 0.5rem 1.2rem;
     border-radius: 20px;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     font-family: var(--font-body);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
     cursor: pointer;
     transition: all 0.3s ease;
 }
 
 .vis-mode-btn.active, .vis-mode-btn:hover {
-    background: var(--color-accent);
-    color: #000;
-    border-color: var(--color-accent);
+    background: rgba(255,255,255,0.1);
+    color: var(--color-text-primary);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
 }
 
 .expanded-content {

@@ -106,72 +106,81 @@ function renderProceduralVisualizer() {
     
     const w = canvas.width;
     const h = canvas.height;
+    
+    // Find where the progress bar is to position the visualizer right above it securely
+    const progressRect = expProgressBar.getBoundingClientRect();
+    const overlayRect = expandedOverlay.getBoundingClientRect();
+    
+    // Calculate precise drawing coordinates
+    const visBaseY = progressRect.top - overlayRect.top - 30; // 30px above the progress bar
     const centerY = h / 2;
     
     if (currentVisMode === 'bars') {
-        // Draw colorful vertical bars
-        const barWidth = w / numBars;
-        const padding = barWidth * 0.25;
-        const maxH = h * 0.6; // Take up 60% of screen height
+        // Draw colorful vertical bars tightly clustered
+        const barWidth = Math.min(8, w / numBars);
+        const padding = 2;
+        const totalWidth = numBars * (barWidth + padding);
+        const startX = (w - totalWidth) / 2;
+        const maxH = 80; // Constrained height
         
         for(let i=0; i<numBars; i++) {
             const bh = barHeights[i] * maxH;
-            const x = i * barWidth + padding/2;
-            const y = centerY - bh/2;
+            const x = startX + i * (barWidth + padding);
+            const y = visBaseY - bh; 
             
-            // Gradient based on index
             const gradient = ctx.createLinearGradient(0, y, 0, y+bh);
-            gradient.addColorStop(0, `hsl(${i * (300/numBars)}, 100%, 50%)`);
-            gradient.addColorStop(1, `hsl(${i * (300/numBars) + 40}, 100%, 30%)`);
+            gradient.addColorStop(0, `hsl(${i * (300/numBars)}, 100%, 60%)`);
+            gradient.addColorStop(1, `hsl(${i * (300/numBars) + 30}, 100%, 40%)`);
             
             ctx.fillStyle = gradient;
             ctx.beginPath();
-            ctx.roundRect(x, y, barWidth - padding, Math.max(2, bh), (barWidth-padding)/2);
+            ctx.roundRect(x, y, barWidth, Math.max(2, bh), barWidth/2);
             ctx.fill();
         }
     } else if (currentVisMode === 'wave') {
-        // Draw double overlapping solid waves
-        const maxH = h * 0.4;
+        // Draw double overlapping solid waves right above the progress bar
+        const maxH = 60;
+        const drawW = w * 0.9;
+        const startX = (w - drawW) / 2;
         
-        ctx.fillStyle = 'rgba(255, 77, 0, 0.4)'; // Primary Accent Orange
+        ctx.fillStyle = 'rgba(255, 77, 0, 0.6)'; // Accent Orange
         ctx.beginPath();
-        ctx.moveTo(0, centerY);
+        ctx.moveTo(startX, visBaseY);
         for(let i=0; i<=numBars; i++) {
-            const x = (i/numBars) * w;
+            const x = startX + (i/numBars) * drawW;
             const bh = (barHeights[i] || 0) * maxH;
-            ctx.lineTo(x, centerY - bh);
+            ctx.lineTo(x, visBaseY - bh);
         }
-        ctx.lineTo(w, h);
-        ctx.lineTo(0, h);
+        ctx.lineTo(startX + drawW, visBaseY);
         ctx.fill();
         
-        ctx.fillStyle = 'rgba(147, 51, 234, 0.4)'; // Purple
+        ctx.fillStyle = 'rgba(147, 51, 234, 0.5)'; // Purple
         ctx.beginPath();
-        ctx.moveTo(0, centerY);
+        ctx.moveTo(startX, visBaseY);
         for(let i=0; i<=numBars; i++) {
-            const x = (i/numBars) * w;
-            const bh = (barHeights[numBars - i] || 0) * (maxH * 0.7); // reversed and smaller
-            ctx.lineTo(x, centerY + bh - 20);
+            const x = startX + (i/numBars) * drawW;
+            const bh = (barHeights[numBars - i] || 0) * (maxH * 0.7); 
+            ctx.lineTo(x, visBaseY - bh + 10);
         }
-        ctx.lineTo(w, h);
-        ctx.lineTo(0, h);
+        ctx.lineTo(startX + drawW, visBaseY);
         ctx.fill();
     } else if (currentVisMode === 'aura') {
-        // Circular relaxing aura/ripple
+        // Circular relaxing aura drawn perfectly behind the album cover art
         const avg = barHeights.reduce((a,b)=>a+b, 0) / numBars;
-        const minRadius = Math.min(w, h) * 0.2;
+        const minRadius = Math.min(w, h) * 0.25;
         const radius = minRadius + avg * (minRadius * 1.5);
         
-        // Match the center of the expanded cover art (which is slightly offset upwards)
-        const auraY = centerY - 60; 
+        const coverRect = expCover.getBoundingClientRect();
+        const auraX = coverRect.left - overlayRect.left + coverRect.width/2;
+        const auraY = coverRect.top - overlayRect.top + coverRect.height/2;
         
-        const grad = ctx.createRadialGradient(w/2, auraY, minRadius*0.5, w/2, auraY, radius);
-        grad.addColorStop(0, 'rgba(255, 77, 0, 0.6)');
+        const grad = ctx.createRadialGradient(auraX, auraY, minRadius*0.4, auraX, auraY, radius);
+        grad.addColorStop(0, 'rgba(255, 77, 0, 0.5)');
         grad.addColorStop(1, 'rgba(255, 77, 0, 0)');
         
         ctx.fillStyle = grad;
         ctx.beginPath();
-        ctx.arc(w/2, auraY, radius, 0, Math.PI*2);
+        ctx.arc(auraX, auraY, radius, 0, Math.PI*2);
         ctx.fill();
     }
 }
