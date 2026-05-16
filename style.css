@@ -434,17 +434,16 @@ body {
 }
 
 .vis-selector {
-    position: absolute;
-    top: 2rem;
-    left: 50%;
-    transform: translateX(-50%);
+    position: relative;
     display: flex;
+    justify-content: center;
     background: rgba(255,255,255,0.03);
-    padding: 4px;
+    padding: 6px;
     border-radius: 30px;
     backdrop-filter: blur(10px);
     z-index: 51;
     border: 1px solid rgba(255,255,255,0.05);
+    margin-top: 2rem;
 }
 
 .vis-mode-btn {
