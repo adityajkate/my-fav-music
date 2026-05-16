@@ -107,12 +107,9 @@ function renderProceduralVisualizer() {
     const w = canvas.width;
     const h = canvas.height;
     
-    // Find where the progress bar is to position the visualizer right above it securely
-    const progressRect = expProgressBar.getBoundingClientRect();
-    const overlayRect = expandedOverlay.getBoundingClientRect();
-    
     // Calculate precise drawing coordinates
-    const visBaseY = progressRect.top - overlayRect.top - 30; // 30px above the progress bar
+    // Start drawing from the absolute bottom of the canvas so it sits beautifully behind the playback controls and below the progress bar
+    const visBaseY = h; 
     const centerY = h / 2;
     
     if (currentVisMode === 'bars') {
@@ -121,7 +118,7 @@ function renderProceduralVisualizer() {
         const padding = 2;
         const totalWidth = numBars * (barWidth + padding);
         const startX = (w - totalWidth) / 2;
-        const maxH = 80; // Constrained height
+        const maxH = 140; // Taller to reach up nicely behind controls
         
         for(let i=0; i<numBars; i++) {
             const bh = barHeights[i] * maxH;
@@ -138,8 +135,8 @@ function renderProceduralVisualizer() {
             ctx.fill();
         }
     } else if (currentVisMode === 'wave') {
-        // Draw double overlapping solid waves right above the progress bar
-        const maxH = 60;
+        // Draw double overlapping solid waves at the bottom of the screen
+        const maxH = 120;
         const drawW = w * 0.9;
         const startX = (w - drawW) / 2;
         
@@ -170,6 +167,7 @@ function renderProceduralVisualizer() {
         const minRadius = Math.min(w, h) * 0.25;
         const radius = minRadius + avg * (minRadius * 1.5);
         
+        const overlayRect = expandedOverlay.getBoundingClientRect();
         const coverRect = expCover.getBoundingClientRect();
         const auraX = coverRect.left - overlayRect.left + coverRect.width/2;
         const auraY = coverRect.top - overlayRect.top + coverRect.height/2;
