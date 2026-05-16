@@ -20,20 +20,101 @@ let globalActiveTrackId = trackDB[0].id; // Keep track of the actual playing son
 // Audio Engine
 const audio = new Audio();
 audio.src = trackDB[0].file;
+audio.crossOrigin = "anonymous"; // Important for Web Audio API if hosted elsewhere, fine locally
 
+// Mini Player Elements
 const trackListEl = document.getElementById('track-list');
 const playPauseBtn = document.getElementById('main-play-btn');
-const iconPlay = document.querySelector('.icon-play');
-const iconPause = document.querySelector('.icon-pause');
+const iconPlays = document.querySelectorAll('.icon-play');
+const iconPauses = document.querySelectorAll('.icon-pause');
 const currentTimeEl = document.getElementById('current-time');
 const totalTimeEl = document.getElementById('total-time');
-const progressFill = document.querySelector('.progress-fill');
-const progressBar = document.querySelector('.progress-bar');
-
+const miniProgressFill = document.getElementById('mini-progress-fill');
+const miniProgressBar = document.getElementById('mini-progress-bar');
 const npTitle = document.getElementById('np-title');
 const npArtist = document.getElementById('np-artist');
 const currentCover = document.getElementById('current-cover');
 const genreBtns = document.querySelectorAll('.genre-btn');
+
+// Expanded Player Elements
+const expandedOverlay = document.getElementById('expanded-overlay');
+const closeExpandedBtn = document.getElementById('close-expanded');
+const expCover = document.getElementById('expanded-cover');
+const expTitle = document.getElementById('expanded-title');
+const expArtist = document.getElementById('expanded-artist');
+const expCurrentTimeEl = document.getElementById('exp-current-time');
+const expTotalTimeEl = document.getElementById('exp-total-time');
+const expProgressFill = document.getElementById('exp-progress-fill');
+const expProgressBar = document.getElementById('exp-progress-bar');
+const expPlayBtn = document.getElementById('exp-play-btn');
+const visualizerGlow = document.getElementById('visualizer-glow');
+
+// ==========================================
+// Minimal Web Audio Visualizer
+// ==========================================
+let audioCtx;
+let analyser;
+let source;
+let dataArray;
+let isVisualizerInit = false;
+
+function initAudioVisualizer() {
+    if (isVisualizerInit) return;
+    
+    // We need user interaction to start AudioContext
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+    
+    audioCtx = new AudioContext();
+    analyser = audioCtx.createAnalyser();
+    
+    source = audioCtx.createMediaElementSource(audio);
+    source.connect(analyser);
+    analyser.connect(audioCtx.destination);
+    
+    analyser.fftSize = 128; // lower resolution for simple glow
+    const bufferLength = analyser.frequencyBinCount;
+    dataArray = new Uint8Array(bufferLength);
+    
+    isVisualizerInit = true;
+    updateVisualizer();
+}
+
+function updateVisualizer() {
+    requestAnimationFrame(updateVisualizer);
+    if (!isPlaying || !analyser || !expandedOverlay.classList.contains('active')) {
+        if(visualizerGlow) {
+            visualizerGlow.style.opacity = '0';
+        }
+        return;
+    }
+    
+    analyser.getByteFrequencyData(dataArray);
+    
+    // Get average of bass frequencies
+    let sum = 0;
+    for(let i = 0; i < 8; i++) {
+        sum += dataArray[i];
+    }
+    const avg = sum / 8;
+    
+    // Smooth, minimal pulse
+    const scale = 1 + (avg / 255) * 1.0; 
+    const opacity = 0.2 + (avg / 255) * 0.4;
+    
+    if (visualizerGlow) {
+        visualizerGlow.style.transform = `translate(-50%, -50%) scale(${scale})`;
+        visualizerGlow.style.opacity = opacity;
+    }
+}
+
+// Ensure AudioContext starts on first click anywhere
+document.body.addEventListener('click', () => {
+    if (!isVisualizerInit && isPlaying) {
+        initAudioVisualizer();
+    }
+}, { once: true });
+
 
 // ==========================================
 // Rendering & Filtering
@@ -154,9 +235,15 @@ function formatTime(secs) {
     return `${m}:${s < 10 ? '0' : ''}${s}`;
 }
 
-function updateMiniPlayerUI(track) {
+function updatePlayerUI(track) {
+    // Mini Player
     npTitle.textContent = track.title;
     npArtist.textContent = track.artist;
+    
+    // Expanded Player
+    expTitle.textContent = track.title;
+    expArtist.textContent = track.artist;
+    expCover.src = track.cover;
     
     gsap.to(currentCover, {
         opacity: 0.5,
@@ -182,7 +269,7 @@ function selectTrack(index) {
     audio.src = track.file;
     audio.currentTime = 0;
     
-    updateMiniPlayerUI(track);
+    updatePlayerUI(track);
 
     document.querySelectorAll('.track-item').forEach(item => {
         item.classList.remove('active', 'playing');
@@ -194,11 +281,25 @@ function selectTrack(index) {
     playTrack();
 }
 
+function updatePlayPauseIcons() {
+    if (isPlaying) {
+        iconPlays.forEach(i => i.style.display = 'none');
+        iconPauses.forEach(i => i.style.display = 'block');
+    } else {
+        iconPlays.forEach(i => i.style.display = 'block');
+        iconPauses.forEach(i => i.style.display = 'none');
+    }
+}
+
 function playTrack() {
+    if (!isVisualizerInit) {
+        // Will initialize on next frame or user interaction
+        initAudioVisualizer();
+    }
+    
     audio.play().then(() => {
         isPlaying = true;
-        iconPlay.style.display = 'none';
-        iconPause.style.display = 'block';
+        updatePlayPauseIcons();
         
         const activeItem = document.querySelector(`.track-item[data-index="${currentTrackIndex}"]`);
         if(activeItem) activeItem.classList.add('playing');
@@ -210,8 +311,7 @@ function playTrack() {
 function pauseTrack() {
     audio.pause();
     isPlaying = false;
-    iconPlay.style.display = 'block';
-    iconPause.style.display = 'none';
+    updatePlayPauseIcons();
     
     const activeItem = document.querySelector(`.track-item[data-index="${currentTrackIndex}"]`);
     if(activeItem) activeItem.classList.remove('playing');
@@ -233,33 +333,43 @@ function prevTrack() {
 
 // Audio Event Listeners
 audio.addEventListener('loadedmetadata', () => {
-    totalTimeEl.textContent = formatTime(audio.duration);
+    const total = formatTime(audio.duration);
+    totalTimeEl.textContent = total;
+    expTotalTimeEl.textContent = total;
 });
 
 audio.addEventListener('timeupdate', () => {
-    currentTimeEl.textContent = formatTime(audio.currentTime);
+    const current = formatTime(audio.currentTime);
+    currentTimeEl.textContent = current;
+    expCurrentTimeEl.textContent = current;
+    
     if (audio.duration) {
         const progress = (audio.currentTime / audio.duration) * 100;
-        progressFill.style.width = `${progress}%`;
+        miniProgressFill.style.width = `${progress}%`;
+        expProgressFill.style.width = `${progress}%`;
     }
 });
 
 audio.addEventListener('ended', nextTrack);
 
 // Click on progress bar to seek
-progressBar.addEventListener('click', (e) => {
-    const rect = progressBar.getBoundingClientRect();
+function seek(e, barElement) {
+    const rect = barElement.getBoundingClientRect();
     const percent = (e.clientX - rect.left) / rect.width;
     audio.currentTime = percent * audio.duration;
-});
+}
+
+miniProgressBar.addEventListener('click', (e) => seek(e, miniProgressBar));
+expProgressBar.addEventListener('click', (e) => seek(e, expProgressBar));
 
 // UI Event Listeners
-playPauseBtn.addEventListener('click', () => {
-    isPlaying ? pauseTrack() : playTrack();
-});
+playPauseBtn.addEventListener('click', () => { isPlaying ? pauseTrack() : playTrack(); });
+expPlayBtn.addEventListener('click', () => { isPlaying ? pauseTrack() : playTrack(); });
 
 document.getElementById('next-btn').addEventListener('click', nextTrack);
 document.getElementById('prev-btn').addEventListener('click', prevTrack);
+document.getElementById('exp-next-btn').addEventListener('click', nextTrack);
+document.getElementById('exp-prev-btn').addEventListener('click', prevTrack);
 
 genreBtns.forEach(btn => {
     btn.addEventListener('click', (e) => {
@@ -270,12 +380,24 @@ genreBtns.forEach(btn => {
     });
 });
 
+// Expanded Overlay Logic
+document.querySelector('.now-playing-mini').addEventListener('click', (e) => {
+    // Don't expand if clicking on the control buttons directly
+    if(e.target.closest('.control-btn') || e.target.closest('.progress-wrapper')) return;
+    
+    expandedOverlay.classList.add('active');
+});
+
+closeExpandedBtn.addEventListener('click', () => {
+    expandedOverlay.classList.remove('active');
+});
+
 // ==========================================
 // Init All
 // ==========================================
 window.addEventListener('load', () => {
     renderTracks(currentTracks);
-    updateMiniPlayerUI(currentTracks[0]); 
+    updatePlayerUI(currentTracks[0]); 
     
     initEntryAnimation();
     initMagneticButtons();
