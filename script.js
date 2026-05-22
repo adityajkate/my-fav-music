@@ -1,6 +1,11 @@
 // Custom Easing
 const easeOutExpo = "expo.out";
 
+// Visualizer Constants
+const VIS_BASE_OFFSET = 20;
+const VIS_MAX_HEIGHT_BARS = 140;
+const VIS_MAX_HEIGHT_WAVE = 100;
+
 // ==========================================
 // Track Data Database
 // ==========================================
@@ -72,7 +77,28 @@ visModeBtns.forEach(btn => {
     });
 });
 
+// Canvas roundRect polyfill for older browsers
+if (!CanvasRenderingContext2D.prototype.roundRect) {
+    CanvasRenderingContext2D.prototype.roundRect = function(x, y, width, height, radius) {
+        this.moveTo(x + radius, y);
+        this.lineTo(x + width - radius, y);
+        this.arcTo(x + width, y, x + width, y + radius, radius);
+        this.lineTo(x + width, y + height - radius);
+        this.arcTo(x + width, y + height, x + width - radius, y + height, radius);
+        this.lineTo(x + radius, y + height);
+        this.arcTo(x, y + height, x, y + height - radius, radius);
+        this.lineTo(x, y + radius);
+        this.arcTo(x, y, x + radius, y, radius);
+    };
+}
+
 function renderProceduralVisualizer() {
+    // Only continue animation if overlay is active
+    if (!expandedOverlay.classList.contains('active')) {
+        visRAF = null;
+        return;
+    }
+
     visRAF = requestAnimationFrame(renderProceduralVisualizer);
     
     // Auto-resize canvas to match container
@@ -110,30 +136,26 @@ function renderProceduralVisualizer() {
     // Find where the progress bar is to position the visualizer perfectly below it
     const progressRect = expProgressBar.getBoundingClientRect();
     const overlayRect = expandedOverlay.getBoundingClientRect();
-    
-    // Start drawing exactly 20px below the progress bar
-    const visBaseY = progressRect.bottom - overlayRect.top + 20; 
-    const centerY = h / 2;
-    
+
+    // Start drawing below the progress bar
+    const visBaseY = progressRect.bottom - overlayRect.top + VIS_BASE_OFFSET;
+
     if (currentVisMode === 'bars') {
         // Draw colorful vertical bars tightly clustered
         const barWidth = Math.min(8, w / numBars);
         const padding = 2;
         const totalWidth = numBars * (barWidth + padding);
         const startX = (w - totalWidth) / 2;
-        const maxH = 140; // Taller to reach up nicely behind controls
-        
+
         for(let i=0; i<numBars; i++) {
-            const bh = barHeights[i] * maxH;
+            const bh = barHeights[i] * VIS_MAX_HEIGHT_BARS;
             const x = startX + i * (barWidth + padding);
-            
-            // Draw downwards from visBaseY
-            const y = visBaseY; 
-            
+            const y = visBaseY;
+
             const gradient = ctx.createLinearGradient(0, y, 0, y+bh);
             gradient.addColorStop(0, `hsl(${i * (300/numBars)}, 100%, 60%)`);
             gradient.addColorStop(1, `hsl(${i * (300/numBars) + 30}, 100%, 40%)`);
-            
+
             ctx.fillStyle = gradient;
             ctx.beginPath();
             ctx.roundRect(x, y, barWidth, Math.max(2, bh), barWidth/2);
@@ -141,28 +163,27 @@ function renderProceduralVisualizer() {
         }
     } else if (currentVisMode === 'wave') {
         // Draw double overlapping solid waves downwards from below the progress bar
-        const maxH = 100;
         const drawW = w * 0.9;
         const startX = (w - drawW) / 2;
-        
-        ctx.fillStyle = 'rgba(255, 77, 0, 0.4)'; // Accent Orange
+
+        ctx.fillStyle = 'rgba(255, 77, 0, 0.4)';
         ctx.beginPath();
         ctx.moveTo(startX, visBaseY);
         for(let i=0; i<=numBars; i++) {
             const x = startX + (i/numBars) * drawW;
-            const bh = (barHeights[i] || 0) * maxH;
-            ctx.lineTo(x, visBaseY + bh); // Draw downwards
+            const bh = (barHeights[i] || 0) * VIS_MAX_HEIGHT_WAVE;
+            ctx.lineTo(x, visBaseY + bh);
         }
         ctx.lineTo(startX + drawW, visBaseY);
         ctx.fill();
-        
-        ctx.fillStyle = 'rgba(147, 51, 234, 0.3)'; // Purple
+
+        ctx.fillStyle = 'rgba(147, 51, 234, 0.3)';
         ctx.beginPath();
         ctx.moveTo(startX, visBaseY);
         for(let i=0; i<=numBars; i++) {
             const x = startX + (i/numBars) * drawW;
-            const bh = (barHeights[numBars - i] || 0) * (maxH * 0.7); 
-            ctx.lineTo(x, visBaseY + bh + 10); // Draw downwards
+            const bh = (barHeights[numBars - i] || 0) * (VIS_MAX_HEIGHT_WAVE * 0.7);
+            ctx.lineTo(x, visBaseY + bh + 10);
         }
         ctx.lineTo(startX + drawW, visBaseY);
         ctx.fill();
@@ -187,11 +208,18 @@ function renderProceduralVisualizer() {
         ctx.fill();
     }
 }
-renderProceduralVisualizer();
 
-function updateVisualizer() {
-    // Kept for backward compatibility when switching play/pause,
-    // though the requestAnimationFrame loop handles everything naturally now.
+function startVisualizer() {
+    if (!visRAF) {
+        renderProceduralVisualizer();
+    }
+}
+
+function stopVisualizer() {
+    if (visRAF) {
+        cancelAnimationFrame(visRAF);
+        visRAF = null;
+    }
 }
 
 
@@ -336,7 +364,7 @@ function updatePlayerUI(track) {
 
 function selectTrack(index) {
     const track = currentTracks[index];
-    
+
     if (globalActiveTrackId === track.id) {
         isPlaying ? pauseTrack() : playTrack();
         return;
@@ -344,20 +372,45 @@ function selectTrack(index) {
 
     currentTrackIndex = index;
     globalActiveTrackId = track.id;
-    
+
     audio.src = track.file;
     audio.currentTime = 0;
-    
+
     updatePlayerUI(track);
 
     document.querySelectorAll('.track-item').forEach(item => {
         item.classList.remove('active', 'playing');
     });
-    
+
     const activeItem = document.querySelector(`.track-item[data-index="${index}"]`);
     if(activeItem) activeItem.classList.add('active');
 
     playTrack();
+}
+
+function showError(message) {
+    const errorDiv = document.createElement('div');
+    errorDiv.style.cssText = `
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(255, 77, 0, 0.9);
+        color: white;
+        padding: 1rem 2rem;
+        border-radius: 8px;
+        z-index: 1000;
+        font-family: var(--font-body);
+        font-size: 0.9rem;
+    `;
+    errorDiv.textContent = message;
+    document.body.appendChild(errorDiv);
+
+    setTimeout(() => {
+        errorDiv.style.transition = 'opacity 0.3s ease';
+        errorDiv.style.opacity = '0';
+        setTimeout(() => errorDiv.remove(), 300);
+    }, 3000);
 }
 
 function updatePlayPauseIcons() {
@@ -374,11 +427,14 @@ function playTrack() {
     audio.play().then(() => {
         isPlaying = true;
         updatePlayPauseIcons();
-        
+
         const activeItem = document.querySelector(`.track-item[data-index="${currentTrackIndex}"]`);
         if(activeItem) activeItem.classList.add('playing');
     }).catch(e => {
         console.error("Playback failed:", e);
+        showError("Failed to play audio. File may be missing or corrupted.");
+        isPlaying = false;
+        updatePlayPauseIcons();
     });
 }
 
@@ -412,6 +468,13 @@ audio.addEventListener('loadedmetadata', () => {
     expTotalTimeEl.textContent = total;
 });
 
+audio.addEventListener('error', (e) => {
+    console.error("Audio loading error:", e);
+    showError("Failed to load audio file.");
+    isPlaying = false;
+    updatePlayPauseIcons();
+});
+
 audio.addEventListener('timeupdate', () => {
     const current = formatTime(audio.currentTime);
     currentTimeEl.textContent = current;
@@ -428,8 +491,9 @@ audio.addEventListener('ended', nextTrack);
 
 // Click on progress bar to seek
 function seek(e, barElement) {
+    if (!audio.duration || isNaN(audio.duration)) return;
     const rect = barElement.getBoundingClientRect();
-    const percent = (e.clientX - rect.left) / rect.width;
+    const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     audio.currentTime = percent * audio.duration;
 }
 
@@ -459,19 +523,25 @@ document.querySelector('.now-playing-mini').addEventListener('click', (e) => {
     // Don't expand if clicking on the control buttons directly
     if(e.target.closest('.control-btn') || e.target.closest('.progress-wrapper')) return;
     expandedOverlay.classList.add('active');
+    startVisualizer();
 });
 
 closeExpandedBtn.addEventListener('click', () => {
     expandedOverlay.classList.remove('active');
+    stopVisualizer();
 });
 
 // ==========================================
 // Init All
 // ==========================================
 window.addEventListener('load', () => {
-    renderTracks(currentTracks);
-    updatePlayerUI(currentTracks[0]); 
-    
+    if (currentTracks.length > 0) {
+        renderTracks(currentTracks);
+        updatePlayerUI(currentTracks[0]);
+    } else {
+        showError("No tracks available.");
+    }
+
     initEntryAnimation();
     initMagneticButtons();
 });
