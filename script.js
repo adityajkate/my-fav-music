@@ -431,7 +431,6 @@ function playTrack() {
         const activeItem = document.querySelector(`.track-item[data-index="${currentTrackIndex}"]`);
         if(activeItem) activeItem.classList.add('playing');
     }).catch(e => {
-        console.error("Playback failed:", e);
         showError("Failed to play audio. File may be missing or corrupted.");
         isPlaying = false;
         updatePlayPauseIcons();
@@ -469,7 +468,6 @@ audio.addEventListener('loadedmetadata', () => {
 });
 
 audio.addEventListener('error', (e) => {
-    console.error("Audio loading error:", e);
     showError("Failed to load audio file.");
     isPlaying = false;
     updatePlayPauseIcons();
@@ -511,8 +509,12 @@ document.getElementById('exp-prev-btn').addEventListener('click', prevTrack);
 
 genreBtns.forEach(btn => {
     btn.addEventListener('click', (e) => {
-        genreBtns.forEach(b => b.classList.remove('active'));
+        genreBtns.forEach(b => {
+            b.classList.remove('active');
+            b.setAttribute('aria-selected', 'false');
+        });
         btn.classList.add('active');
+        btn.setAttribute('aria-selected', 'true');
         const genre = btn.getAttribute('data-genre');
         filterByGenre(genre);
     });
@@ -529,6 +531,15 @@ document.querySelector('.now-playing-mini').addEventListener('click', (e) => {
 closeExpandedBtn.addEventListener('click', () => {
     expandedOverlay.classList.remove('active');
     stopVisualizer();
+});
+
+// ==========================================
+// Cleanup
+// ==========================================
+window.addEventListener('beforeunload', () => {
+    stopVisualizer();
+    audio.pause();
+    audio.src = '';
 });
 
 // ==========================================
