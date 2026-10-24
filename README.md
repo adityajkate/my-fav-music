@@ -27,7 +27,7 @@ Some just sound *right*.
 💔 Emotional  
 🌌 Dreamy  
 🌊 Calm  
-🎤 Sing‑along  
+  
 
 
 ## 💫 Why I Love These Songs
